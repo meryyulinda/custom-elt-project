@@ -2,7 +2,7 @@ version: '3'
 
 services:
   source_postgres:
-    image: postgres:9.2
+    image: postgres:9.3
     ports:
       - "5433:5432"
     networks:
@@ -15,7 +15,7 @@ services:
       - ./source_db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
 
   destination_postgres:
-    image: postgres:9.2
+    image: postgres:9.3
     ports:
       - "5434:5432"
     networks:
@@ -35,6 +35,33 @@ services:
     depends_on:
       - source_postgres
       - destination_postgres
+  
+  dbt:
+    image: ghcr.io/dbt-labs/dbt-postgres:1.8.2
+    depends_on:
+      - elt_script
+    command: 
+      [
+        "run",
+        "--profiles-dir",
+        "/root",
+        "--project-dir",
+        "/dbt"
+      ]
+    networks:
+      - elt_network
+    volumes:
+      - ./dbt_postgres_transform:/dbt
+      - ~/.dbt:/root
+    environment:
+      DBT_PROFILE: dbt_postgres_transform
+      DBT_TARGET: dev
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 10
+
 
 networks:
   elt_network:
